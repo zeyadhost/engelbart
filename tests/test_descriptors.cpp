@@ -6,6 +6,7 @@
 #include <string_view>
 
 #include "engelbart/engelbart.hpp"
+#include "golden_descriptors.hpp"
 
 namespace {
 
@@ -58,33 +59,21 @@ void test_byte_writer() {
 
 void test_device_descriptors() {
     expect_bytes(engelbart::device_descriptor<mouse_device>(),
-                 std::array<engelbart::byte, 18>{
-                     18, 0x01, 0x00, 0x02, 0x00, 0x00, 0x00, 64,
-                     0x09, 0x12, 0x01, 0x00, 0x00, 0x01, 1, 2, 0, 1},
+                 engelbart_tests::golden::mouse_device_descriptor,
                  "mouse device descriptor");
 
     expect_bytes(engelbart::device_descriptor<keyboard_device>(),
-                 std::array<engelbart::byte, 18>{
-                     18, 0x01, 0x00, 0x02, 0x00, 0x00, 0x00, 64,
-                     0x09, 0x12, 0x02, 0x00, 0x00, 0x01, 1, 2, 0, 1},
+                 engelbart_tests::golden::keyboard_device_descriptor,
                  "keyboard device descriptor");
 }
 
 void test_configuration_descriptors() {
     expect_bytes(engelbart::configuration_descriptor<mouse_device>(),
-                 std::array<engelbart::byte, 34>{
-                     0x09, 0x02, 0x22, 0x00, 0x01, 0x01, 0x00, 0x80, 0x32,
-                     0x09, 0x04, 0x00, 0x00, 0x01, 0x03, 0x00, 0x00, 0x00,
-                     0x09, 0x21, 0x11, 0x01, 0x00, 0x01, 0x22, 0x34, 0x00,
-                     0x07, 0x05, 0x81, 0x03, 0x08, 0x00, 0x0a},
+                 engelbart_tests::golden::mouse_configuration_descriptor,
                  "mouse configuration descriptor");
 
     expect_bytes(engelbart::configuration_descriptor<keyboard_device>(),
-                 std::array<engelbart::byte, 34>{
-                     0x09, 0x02, 0x22, 0x00, 0x01, 0x01, 0x00, 0x80, 0x32,
-                     0x09, 0x04, 0x00, 0x00, 0x01, 0x03, 0x01, 0x01, 0x00,
-                     0x09, 0x21, 0x11, 0x01, 0x00, 0x01, 0x22, 0x3f, 0x00,
-                     0x07, 0x05, 0x81, 0x03, 0x08, 0x00, 0x0a},
+                 engelbart_tests::golden::keyboard_configuration_descriptor,
                  "keyboard configuration descriptor");
 
     const auto composite = engelbart::configuration_descriptor<composite_device>();
@@ -100,26 +89,11 @@ void test_configuration_descriptors() {
 
 void test_hid_report_descriptors() {
     expect_bytes(engelbart::mouse_report_descriptor,
-                 std::array<engelbart::byte, 52>{
-                     0x05, 0x01, 0x09, 0x02, 0xa1, 0x01, 0x09, 0x01,
-                     0xa1, 0x00, 0x05, 0x09, 0x19, 0x01, 0x29, 0x03,
-                     0x15, 0x00, 0x25, 0x01, 0x95, 0x03, 0x75, 0x01,
-                     0x81, 0x02, 0x95, 0x01, 0x75, 0x05, 0x81, 0x03,
-                     0x05, 0x01, 0x09, 0x30, 0x09, 0x31, 0x09, 0x38,
-                     0x15, 0x81, 0x25, 0x7f, 0x75, 0x08, 0x95, 0x03,
-                     0x81, 0x06, 0xc0, 0xc0},
+                 engelbart_tests::golden::mouse_report_descriptor,
                  "mouse report descriptor");
 
     expect_bytes(engelbart::keyboard_report_descriptor,
-                 std::array<engelbart::byte, 63>{
-                     0x05, 0x01, 0x09, 0x06, 0xa1, 0x01, 0x05, 0x07,
-                     0x19, 0xe0, 0x29, 0xe7, 0x15, 0x00, 0x25, 0x01,
-                     0x75, 0x01, 0x95, 0x08, 0x81, 0x02, 0x95, 0x01,
-                     0x75, 0x08, 0x81, 0x03, 0x95, 0x05, 0x75, 0x01,
-                     0x05, 0x08, 0x19, 0x01, 0x29, 0x05, 0x91, 0x02,
-                     0x95, 0x01, 0x75, 0x03, 0x91, 0x03, 0x95, 0x06,
-                     0x75, 0x08, 0x15, 0x00, 0x25, 0x65, 0x05, 0x07,
-                     0x19, 0x00, 0x29, 0x65, 0x81, 0x00, 0xc0},
+                 engelbart_tests::golden::keyboard_report_descriptor,
                  "keyboard report descriptor");
 }
 
@@ -189,6 +163,18 @@ void test_validation() {
     using unsupported_mouse = engelbart::hid_mouse<mouse_id, 5, true>;
     expect(engelbart::validate_device<unsupported_mouse>().contains("EGB-HID-001"),
            "unsupported mouse model diagnostic");
+
+    const auto tinyusb_mismatch = engelbart::validate_tinyusb_config<composite_device>(1, 64, 8);
+    expect(tinyusb_mismatch.contains("EGB-TINYUSB-001"),
+           "TinyUSB HID instance mismatch diagnostic");
+
+    auto bad_config = engelbart::configuration_descriptor<mouse_device>();
+    bad_config[2] = 0x21;
+    const auto bad_config_result =
+        engelbart::validate_configuration_descriptor_bytes(std::span<const engelbart::byte>{
+            bad_config.data(), bad_config.size()});
+    expect(bad_config_result.contains("EGB-DESC-002"),
+           "descriptor length mismatch diagnostic");
 }
 
 void test_tinyusb_glue() {

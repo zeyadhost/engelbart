@@ -3,8 +3,10 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <span>
 #include <string_view>
 
+#include "engelbart/bytes.hpp"
 #include "engelbart/model.hpp"
 
 namespace engelbart {
@@ -102,6 +104,54 @@ constexpr validation_result<> validate_device() {
             result.add("EGB-UNSUPPORTED-001",
                        "NKRO and media keys are deferred for the year-one keyboard model");
         }
+    }
+
+    return result;
+}
+
+template <typename Device>
+constexpr validation_result<> validate_tinyusb_config(std::size_t cfg_tud_hid,
+                                                      std::size_t endpoint0_size,
+                                                      std::size_t hid_ep_buffer_size) {
+    validation_result<> result{};
+    if (cfg_tud_hid != device_traits<Device>::hid_in_endpoint_count) {
+        result.add("EGB-TINYUSB-001",
+                   "CFG_TUD_HID must match the generated HID instance count");
+    }
+    if (endpoint0_size != 64) {
+        result.add("EGB-TINYUSB-002",
+                   "CFG_TUD_ENDPOINT0_SIZE must match generated bMaxPacketSize0");
+    }
+    if (hid_ep_buffer_size < 8) {
+        result.add("EGB-TINYUSB-003",
+                   "CFG_TUD_HID_EP_BUFSIZE must support generated HID packet size");
+    }
+    return result;
+}
+
+inline validation_result<> validate_configuration_descriptor_bytes(std::span<const byte> bytes) {
+    validation_result<> result{};
+    if (bytes.size() < 9) {
+        result.add("EGB-DESC-001", "configuration descriptor is too short");
+        return result;
+    }
+    if (bytes[0] != 9 || bytes[1] != 0x02) {
+        result.add("EGB-DESC-001", "configuration descriptor header is invalid");
+        return result;
+    }
+
+    const auto total_length = static_cast<std::size_t>(bytes[2] | (bytes[3] << 8u));
+    if (total_length != bytes.size()) {
+        result.add("EGB-DESC-002", "wTotalLength must match emitted byte count");
+    }
+
+    for (std::size_t offset = 0; offset < bytes.size();) {
+        const auto length = static_cast<std::size_t>(bytes[offset]);
+        if (length == 0 || offset + length > bytes.size()) {
+            result.add("EGB-DESC-003", "descriptor bLength overruns configuration bytes");
+            return result;
+        }
+        offset += length;
     }
 
     return result;
