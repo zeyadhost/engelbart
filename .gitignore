@@ -1,2 +1,6 @@
 build/
 build-pico-smoke/
+/internal/
+/.private/
+/scratch/
+*.local.md
