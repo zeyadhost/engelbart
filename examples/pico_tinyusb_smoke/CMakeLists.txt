@@ -32,6 +32,7 @@ target_compile_definitions(engelbart_pico_tinyusb_smoke PRIVATE
 target_link_libraries(engelbart_pico_tinyusb_smoke
     pico_stdlib
     pico_stdio_usb_headers
+    pico_unique_id
     pico_usb_reset_interface
     hardware_watchdog
     tinyusb_device

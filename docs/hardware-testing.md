@@ -12,7 +12,7 @@ The simplest manual path is BOOTSEL mode:
 
 `picotool` primarily interacts with RP2040/RP2350 devices in BOOTSEL mode. `picotool -f` can request a reboot from running firmware only when that firmware exposes compatible Pico SDK USB support. A HID-only TinyUSB device should not be assumed to support forced reboot.
 
-The Pico TinyUSB smoke firmware is development-friendly: it emits UF2/bin/hex outputs and appends the Pico SDK reset vendor interface to the smoke firmware's USB configuration so `picotool reboot -f -u` can reset the running board into BOOTSEL mode. This reset interface is a smoke-test harness feature, not an Engelbart-generated USB class.
+The Pico TinyUSB smoke firmware is development-friendly: it emits UF2/bin/hex outputs, appends the Pico SDK reset vendor interface to the smoke firmware's USB configuration, and exposes a static serial string from the Pico SDK unique board ID so picotool can track the device across forced reboots. This reset and serial support is smoke-test harness infrastructure, not an Engelbart-generated USB class.
 
 Typical command-line workflow:
 
@@ -20,19 +20,21 @@ Typical command-line workflow:
 cmake -S examples/pico_tinyusb_smoke -B build-pico-smoke -DPICO_BOARD=pico_w
 cmake --build build-pico-smoke
 picotool load -x build-pico-smoke/engelbart_pico_tinyusb_smoke.uf2
-picotool info -a -f
-picotool reboot -f -u
+picotool info -a -f --vid 0x1209 --pid 0x0003
+picotool reboot -u -f --vid 0x1209 --pid 0x0003
 ```
 
-After `picotool reboot -f -u`, the board should appear in BOOTSEL mode and can be loaded again with `picotool load -x`.
+After `picotool reboot -u -f --vid 0x1209 --pid 0x0003`, the board should appear in BOOTSEL mode and can be loaded again with `picotool load -x`.
 
-On Linux, `picotool -f` also needs permission to open the running USB device. The smoke firmware intentionally uses the pid.codes-style test VID/PID `1209:0003`, so default Raspberry Pi `2e8a` udev rules may not apply. If `picotool info -a -f` reports no accessible device while `lsusb` shows `1209:0003`, install a local udev rule for the smoke VID/PID, reload udev rules, and reconnect or re-enumerate the board:
+The explicit VID/PID arguments matter. The smoke firmware intentionally uses the pid.codes-style test VID/PID `1209:0003`. With picotool 2.2.0, bare `picotool -f` defaults to Raspberry Pi VID filtering and does not inspect this third-party VID/PID for a reset interface. Do not change the smoke firmware to use Raspberry Pi's VID/PID just to inherit default picotool filtering. Engelbart examples should not impersonate real USB products.
+
+On Linux, `picotool -f` also needs permission to open the running USB device. Default Raspberry Pi `2e8a` udev rules do not apply to `1209:0003`. If an explicit command such as `picotool info -a -f --vid 0x1209 --pid 0x0003` reports that the device is present but inaccessible, install a local udev rule for the smoke VID/PID, reload udev rules, and reconnect or re-enumerate the board:
 
 ```udev
 SUBSYSTEMS=="usb", ATTRS{idVendor}=="1209", ATTRS{idProduct}=="0003", MODE="0660", TAG+="uaccess"
 ```
 
-Do not change the smoke firmware to use Raspberry Pi's VID/PID just to inherit existing udev rules. Engelbart examples should not impersonate real USB products.
+Permissions are necessary, but they are not sufficient: the running firmware must also expose the reset interface and a usable serial string. The Pico smoke firmware does both. Other Engelbart-generated HID descriptors do not imply picotool forced reboot support.
 
 ## SWD/OpenOCD Path
 
