@@ -1,7 +1,9 @@
 #include <array>
+#include <cstddef>
 #include <cstdint>
 
 #include "pico/stdlib.h"
+#include "pico/usb_reset_interface.h"
 #include "tusb.h"
 
 #include "engelbart/engelbart.hpp"
@@ -15,12 +17,41 @@ using glue = engelbart::tinyusb_glue<example_device>;
 static_assert(engelbart::validate_device<example_device>().ok());
 static_assert(glue::hid_instance_count == 2);
 
+namespace {
+
+// Smoke-firmware-only reset interface for picotool development workflows.
+inline constexpr std::array<engelbart::byte, 9> reset_interface_descriptor{
+    9, 0x04, 2, 0, 0, 0xff, RESET_INTERFACE_SUBCLASS, RESET_INTERFACE_PROTOCOL, 0};
+
+constexpr auto smoke_configuration_descriptor() {
+    constexpr auto hid_configuration = engelbart::descriptor_set<example_device>::configuration;
+    std::array<engelbart::byte,
+               hid_configuration.size() + reset_interface_descriptor.size()> out{};
+
+    std::size_t offset = 0;
+    for (const auto value : hid_configuration) {
+        out[offset++] = value;
+    }
+    for (const auto value : reset_interface_descriptor) {
+        out[offset++] = value;
+    }
+
+    out[2] = static_cast<engelbart::byte>(out.size() & 0xffu);
+    out[3] = static_cast<engelbart::byte>((out.size() >> 8u) & 0xffu);
+    out[4] = 3;
+    return out;
+}
+
+inline constexpr auto smoke_configuration = smoke_configuration_descriptor();
+
+}  // namespace
+
 extern "C" const std::uint8_t* tud_descriptor_device_cb() {
     return glue::device_callback().data();
 }
 
 extern "C" const std::uint8_t* tud_descriptor_configuration_cb(std::uint8_t) {
-    return glue::configuration_callback().data();
+    return smoke_configuration.data();
 }
 
 extern "C" const std::uint8_t* tud_hid_descriptor_report_cb(std::uint8_t instance) {
