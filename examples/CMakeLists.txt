@@ -1,0 +1,8 @@
+add_executable(engelbart_mouse_example mouse.cpp)
+target_link_libraries(engelbart_mouse_example PRIVATE engelbart)
+
+add_executable(engelbart_keyboard_example keyboard.cpp)
+target_link_libraries(engelbart_keyboard_example PRIVATE engelbart)
+
+add_executable(engelbart_composite_example composite.cpp)
+target_link_libraries(engelbart_composite_example PRIVATE engelbart)
