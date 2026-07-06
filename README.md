@@ -31,5 +31,5 @@ Start with:
 - [ADR 0001: Project Identity](docs/adr/0001-project-identity.md)
 - [RFC 0001: Minimal HID Device Model](docs/rfc/0001-minimal-hid-device-model.md)
 - [RFC 0002: Minimal HID Descriptor Layout](docs/rfc/0002-minimal-hid-descriptor-layout.md)
-
-Historical input remains in [engelbart-summary.md](engelbart-summary.md) and the review documents under `docs/`.
+- [Hardware testing notes](docs/hardware-testing.md)
+- [Design history: scope narrowing](docs/design-history/scope-narrowing.md)
