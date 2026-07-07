@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.1.0 - Unreleased
+## v0.1.0 - 2026-07-07
 
 This is an early preview of Engelbart as a compile-time USB device compiler for embedded C++.
 
