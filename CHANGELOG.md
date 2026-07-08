@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.1.1 - Unreleased
+
+Hardening changes:
+
+- Additional compile-failure validation coverage.
+- Additional string descriptor edge-case tests.
+- Additional descriptor invariant checks for supported HID layouts.
+
 ## v0.1.0 - 2026-07-07
 
 This is an early preview of Engelbart as a compile-time USB device compiler for embedded C++.

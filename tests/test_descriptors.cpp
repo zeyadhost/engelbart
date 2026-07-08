@@ -87,6 +87,49 @@ void test_configuration_descriptors() {
     expect(composite[33] == 0x0a && composite[58] == 0x0a, "endpoint intervals");
 }
 
+void test_descriptor_invariants() {
+    const auto mouse_device_descriptor = engelbart::device_descriptor<mouse_device>();
+    const auto keyboard_device_descriptor = engelbart::device_descriptor<keyboard_device>();
+    const auto composite_device_descriptor = engelbart::device_descriptor<composite_device>();
+    expect(mouse_device_descriptor[17] == 1, "mouse bNumConfigurations");
+    expect(keyboard_device_descriptor[17] == 1, "keyboard bNumConfigurations");
+    expect(composite_device_descriptor[17] == 1, "composite bNumConfigurations");
+    expect(mouse_device_descriptor[14] == 1 && mouse_device_descriptor[15] == 2 &&
+               mouse_device_descriptor[16] == 0,
+           "mouse string indexes");
+    expect(keyboard_device_descriptor[14] == 1 && keyboard_device_descriptor[15] == 2 &&
+               keyboard_device_descriptor[16] == 0,
+           "keyboard string indexes");
+    expect(composite_device_descriptor[14] == 1 && composite_device_descriptor[15] == 2 &&
+               composite_device_descriptor[16] == 0,
+           "composite string indexes");
+
+    const auto mouse = engelbart::configuration_descriptor<mouse_device>();
+    const auto keyboard = engelbart::configuration_descriptor<keyboard_device>();
+    const auto composite = engelbart::configuration_descriptor<composite_device>();
+    expect(mouse[4] == 1, "mouse bNumInterfaces");
+    expect(keyboard[4] == 1, "keyboard bNumInterfaces");
+    expect(composite[4] == 2, "composite bNumInterfaces");
+
+    expect(mouse[25] == engelbart::mouse_report_descriptor.size() && mouse[26] == 0,
+           "mouse HID report length");
+    expect(keyboard[25] == engelbart::keyboard_report_descriptor.size() && keyboard[26] == 0,
+           "keyboard HID report length");
+    expect(composite[25] == engelbart::mouse_report_descriptor.size() && composite[26] == 0,
+           "composite mouse HID report length");
+    expect(composite[50] == engelbart::keyboard_report_descriptor.size() && composite[51] == 0,
+           "composite keyboard HID report length");
+
+    expect(mouse[31] == 8 && mouse[32] == 0 && mouse[33] == 10,
+           "mouse endpoint packet size and interval");
+    expect(keyboard[31] == 8 && keyboard[32] == 0 && keyboard[33] == 10,
+           "keyboard endpoint packet size and interval");
+    expect(composite[31] == 8 && composite[32] == 0 && composite[33] == 10,
+           "composite mouse endpoint packet size and interval");
+    expect(composite[56] == 8 && composite[57] == 0 && composite[58] == 10,
+           "composite keyboard endpoint packet size and interval");
+}
+
 void test_hid_report_descriptors() {
     expect_bytes(engelbart::mouse_report_descriptor,
                  engelbart_tests::golden::mouse_report_descriptor,
@@ -112,6 +155,14 @@ void test_string_descriptors() {
     expect_bytes(engelbart::product_string_descriptor<short_mouse>(),
                  std::array<engelbart::byte, 6>{0x06, 0x03, 0x43, 0x00, 0x44, 0x00},
                  "product UTF-16LE bytes");
+
+    using max_string_id = engelbart::identity<0x1209, 0x0101,
+                                              engelbart::fixed_string{"1234567890123456789012345678901"},
+                                              engelbart::fixed_string{"Product"}>;
+    using max_string_mouse = engelbart::hid_mouse<max_string_id>;
+    expect(engelbart::validate_device<max_string_mouse>().ok(), "31-character string accepted");
+    expect(engelbart::manufacturer_string_descriptor<max_string_mouse>().size() == 64,
+           "31-character string descriptor length");
 
     expect(engelbart::descriptor_set<mouse_device>::device[14] == 1, "manufacturer index");
     expect(engelbart::descriptor_set<mouse_device>::device[15] == 2, "product index");
@@ -142,6 +193,27 @@ void test_validation() {
     expect(engelbart::validate_device<empty_string_mouse>().contains("EGB-STR-001"),
            "empty manufacturer diagnostic");
 
+    using empty_product_id = engelbart::identity<0x1209, 0x0100,
+                                                engelbart::fixed_string{"Maker"},
+                                                engelbart::fixed_string{""}>;
+    using empty_product_mouse = engelbart::hid_mouse<empty_product_id>;
+    expect(engelbart::validate_device<empty_product_mouse>().contains("EGB-STR-002"),
+           "empty product diagnostic");
+
+    using too_long_string_id = engelbart::identity<0x1209, 0x0100,
+                                                  engelbart::fixed_string{"12345678901234567890123456789012"},
+                                                  engelbart::fixed_string{"Product"}>;
+    using too_long_string_mouse = engelbart::hid_mouse<too_long_string_id>;
+    expect(engelbart::validate_device<too_long_string_mouse>().contains("EGB-STR-001"),
+           "32-character manufacturer diagnostic");
+
+    using control_char_id = engelbart::identity<0x1209, 0x0100,
+                                                engelbart::fixed_string{"Bad\x1f"},
+                                                engelbart::fixed_string{"Product"}>;
+    using control_char_mouse = engelbart::hid_mouse<control_char_id>;
+    expect(engelbart::validate_device<control_char_mouse>().contains("EGB-STR-001"),
+           "control character diagnostic");
+
     using bad_char_id = engelbart::identity<0x1209, 0x0100,
                                             engelbart::fixed_string{"Bad\x7f"},
                                             engelbart::fixed_string{"Product"}>;
@@ -149,12 +221,26 @@ void test_validation() {
     expect(engelbart::validate_device<bad_char_mouse>().contains("EGB-STR-001"),
            "invalid character diagnostic");
 
+    using non_ascii_id = engelbart::identity<0x1209, 0x0100,
+                                             engelbart::fixed_string{"Cafe\xC3\xA9"},
+                                             engelbart::fixed_string{"Product"}>;
+    using non_ascii_mouse = engelbart::hid_mouse<non_ascii_id>;
+    expect(engelbart::validate_device<non_ascii_mouse>().contains("EGB-STR-001"),
+           "non-ASCII diagnostic");
+
     using bad_vid_id = engelbart::identity<0x0000, 0x0100,
                                            engelbart::fixed_string{"Maker"},
                                            engelbart::fixed_string{"Product"}>;
     using bad_vid_mouse = engelbart::hid_mouse<bad_vid_id>;
     expect(engelbart::validate_device<bad_vid_mouse>().contains("EGB-ID-001"),
            "invalid VID diagnostic");
+
+    using bad_pid_id = engelbart::identity<0x1209, 0x0000,
+                                           engelbart::fixed_string{"Maker"},
+                                           engelbart::fixed_string{"Product"}>;
+    using bad_pid_mouse = engelbart::hid_mouse<bad_pid_id>;
+    expect(engelbart::validate_device<bad_pid_mouse>().contains("EGB-ID-001"),
+           "invalid PID diagnostic");
 
     using unsupported_keyboard = engelbart::boot_keyboard<keyboard_id, true, false>;
     expect(engelbart::validate_device<unsupported_keyboard>().contains("EGB-UNSUPPORTED-001"),
@@ -212,6 +298,7 @@ int main() {
     test_byte_writer();
     test_device_descriptors();
     test_configuration_descriptors();
+    test_descriptor_invariants();
     test_hid_report_descriptors();
     test_string_descriptors();
     test_allocators();

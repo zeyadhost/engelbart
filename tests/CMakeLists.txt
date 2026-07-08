@@ -27,7 +27,31 @@ add_engelbart_compile_failure_test(
 )
 
 add_engelbart_compile_failure_test(
+    engelbart_compile_fail_empty_product
+    compile_fail/invalid_empty_product.cpp
+    "EGB-VALIDATION"
+)
+
+add_engelbart_compile_failure_test(
+    engelbart_compile_fail_invalid_vid
+    compile_fail/invalid_vid.cpp
+    "EGB-VALIDATION"
+)
+
+add_engelbart_compile_failure_test(
+    engelbart_compile_fail_invalid_pid
+    compile_fail/invalid_pid.cpp
+    "EGB-VALIDATION"
+)
+
+add_engelbart_compile_failure_test(
     engelbart_compile_fail_unsupported_keyboard_nkro
     compile_fail/unsupported_keyboard_nkro.cpp
+    "EGB-VALIDATION"
+)
+
+add_engelbart_compile_failure_test(
+    engelbart_compile_fail_unsupported_mouse_model
+    compile_fail/unsupported_mouse_model.cpp
     "EGB-VALIDATION"
 )
